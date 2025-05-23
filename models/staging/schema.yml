@@ -2,7 +2,6 @@
 
 version: 2
 
-
 models:
   - name: stg_clients
     description: "Modèle de staging pour nettoyer les données clients."
