@@ -12,7 +12,6 @@ WITH source AS (
         age,
         genre,
         frequence_visites,
-        numero_telephone,
         date_inscription
     FROM {{ ref('stg_clients') }}
 )
