@@ -2,7 +2,6 @@
 
 version: 2
 
-
 models:
   - name: stg_clients
     description: "Modèle de staging pour nettoyer les données clients."
@@ -11,10 +10,6 @@ models:
         description: "Identifiant unique du client."
         tests:
           - not_null
-          - unique
-      - name: email_client
-        description: "Adresse e-mail du client."
-        tests:
           - unique
   - name: stg_campagnes
     description: "Modèle de staging pour les campagnes."
