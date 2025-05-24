@@ -6,9 +6,6 @@
     materialized='table'
 ) }}
 
-
-{{ config(materialized='table') }}
-
 SELECT 
     TRIM(produit_id) AS produit_id,
     COUNT(*) AS nombre_fois_favori
