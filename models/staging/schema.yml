@@ -11,10 +11,6 @@ models:
         tests:
           - not_null
           - unique
-      - name: email_client
-        description: "Adresse e-mail du client."
-        tests:
-          - unique
   - name: stg_campagnes
     description: "Modèle de staging pour les campagnes."
     columns:
