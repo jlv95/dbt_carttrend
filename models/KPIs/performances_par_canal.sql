@@ -1,4 +1,4 @@
--- Avoir un tableau avec en colonnes : nom du canal ;  coût par conversion
+-- Avoir un tableau avec en colonnes : canal ;  coût par conversion ; cout_par_clic
 
 SELECT
     canal,
