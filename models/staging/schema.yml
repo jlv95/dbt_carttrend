@@ -41,7 +41,7 @@ models:
   - name: stg_entrepots_machines
     description: "Modèle de staging pour les machines des entrepôts."
     columns:
-      - name: id
+      - name: id_entrepot_machine
         description: "Combinaison des identifiants machines, entrepôts et mois."
         tests:
           - not_null
@@ -73,7 +73,7 @@ models:
   - name: stg_produits
     description: "Modèle de staging pour les produits."
     columns:
-      - name: id
+      - name: id_produit
         description: "Identifiant unique du produit."
         tests:
           - not_null

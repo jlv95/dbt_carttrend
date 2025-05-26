@@ -4,5 +4,4 @@
     materialized='table'
 ) }}
 
-SELECT *
-FROM {{ ref('stg_entrepots_machines') }}
+SELECT * FROM {{ ref('stg_entrepots_machines') }}
