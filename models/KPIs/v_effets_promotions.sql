@@ -1,3 +1,6 @@
+-- Vue : v_effets_promotions.sql (US008)
+-- Objectif : mesurer l’effet réel des promotions sur les ventes,
+-- en comparant le montant théorique (plein tarif) au montant réellement payé
 WITH commandes AS (
   SELECT
     id_produit,
@@ -14,7 +17,7 @@ calculs AS (
     id_produit,
 
     -- Montant théorique sans promo (catalogue)
-    SUM(COALESCE(quantite, 0) * COALESCE(prix_unitaire_avant_promotion, 0)) AS montant_sans_promo,
+    SUM(COALESCE(quantite, 0) * COALESCE(prix_unitaire_avant_promotion, 0)) AS montant_sans_promo, -- Si quantité est NULL, on consière 0
 
     -- Montant réellement encaissé (avec ou sans promo)
     SUM(COALESCE(montant_paye, 0)) AS montant_reel,
