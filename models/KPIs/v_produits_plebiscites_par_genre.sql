@@ -1,24 +1,26 @@
 -- ============================================================================
--- Modèle dbt : v_segmentation_produits_par_genre
--- Objectif : Identifier les préférences produits selon le genre (Femme / Homme)
--- Méthode : Croisement volume / chiffre d'affaires + segmentation stratégique
+-- Modèle dbt : v_segmentation_produits_par_genre -> Analysre comportementale (US003)
+-- Objectif : Identifier les préférences produits selon le genre
+-- Méthode : Croisement volume / chiffre d'affaires + exposition des médianes
+-- Ajout : exposition des médianes directement dans la vue
 -- ============================================================================
 
--- Étape 1 : Regrouper les ventes par genre et produit
+-- Étape 1 : Regrouper les ventes valides par genre et produit
 WITH ventes_genre AS (
   SELECT
     c.genre,
     p.id_produit,
     p.produit,
-    SUM(f.quantite) AS quantite_totale,
-    SUM(f.quantite * p.prix) AS chiffre_affaires
+    SUM(COALESCE(f.quantite, 0)) AS quantite_totale,
+    SUM(COALESCE(f.montant_commande_apres_promotion, 0)) AS chiffre_affaires
   FROM {{ ref('mrt_fct_commandes') }} f
   JOIN {{ ref('mrt_dim_clients') }} c ON f.id_client = c.id_client
   JOIN {{ ref('mrt_dim_produits') }} p ON f.id_produit = p.id_produit
+  WHERE f.statut_commande != 'Annulée'
   GROUP BY c.genre, p.id_produit, p.produit
 ),
 
--- Étape 2 : Calcul des médianes par genre pour le volume et le CA
+-- Étape 2 : Calcul des médianes par genre
 seuils AS (
   SELECT
     genre,
@@ -28,7 +30,7 @@ seuils AS (
   GROUP BY genre
 ),
 
--- Étape 3 : Attribution des rangs volume et CA dans chaque genre
+-- Étape 3 : Attribution des rangs dans chaque genre
 classement AS (
   SELECT
     v.*,
@@ -37,9 +39,15 @@ classement AS (
   FROM ventes_genre v
 )
 
--- Étape 4 : Segmentation des produits selon les seuils du genre
+-- Étape 4 : Segmentation finale + exposition des médianes
 SELECT
-  c.*,
+  c.genre,
+  c.id_produit,
+  c.produit,
+  c.quantite_totale,
+  c.chiffre_affaires,
+  c.rang_volume,
+  c.rang_valeur,
   s.mediane_volume,
   s.mediane_ca,
   CASE
@@ -49,5 +57,4 @@ SELECT
     ELSE 'Faible'
   END AS segment_produit
 FROM classement c
-JOIN seuils s
-  ON c.genre = s.genre
+JOIN seuils s ON c.genre = s.genre

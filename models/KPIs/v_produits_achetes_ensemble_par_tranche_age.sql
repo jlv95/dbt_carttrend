@@ -1,9 +1,10 @@
+-- ============================================================================
 -- Vue : v_produits_achetes_ensemble_par_tranche_age.sql (US005)
--- Objectif : identifier les paires de produits fréquemment achetés par les mêmes clients,
--- segmentées par tranche d'âge
+-- Objectif : identifier les paires de produits achetés ensemble selon l'âge
+-- Méthode : regroupement client, paires croisées, score de confiance + médianes
+-- ============================================================================
 
 WITH clients_avec_tranche AS (
-  -- Étape 1 : attribution de la tranche d'âge à chaque client
   SELECT 
     id_client,
     CASE 
@@ -16,18 +17,17 @@ WITH clients_avec_tranche AS (
 ),
 
 achats_clients AS (
-  -- Étape 2 : produits achetés par client avec tranche d'âge
   SELECT 
     f.id_client,
     c.tranche_age,
     f.id_produit
   FROM {{ ref('mrt_fct_commandes') }} f
   JOIN clients_avec_tranche c ON f.id_client = c.id_client
+  WHERE f.statut_commande != 'Annulée'
   GROUP BY f.id_client, c.tranche_age, f.id_produit
 ),
 
 paires_par_client AS (
-  -- Étape 3 : création des paires de produits achetés par un même client (dans la même tranche)
   SELECT 
     a.tranche_age,
     a.id_produit AS produit_1,
@@ -42,7 +42,6 @@ paires_par_client AS (
 ),
 
 achats_par_produit AS (
-  -- Étape 4 : nombre de clients par produit et tranche d'âge
   SELECT 
     tranche_age,
     id_produit,
@@ -51,8 +50,16 @@ achats_par_produit AS (
   GROUP BY tranche_age, id_produit
 ),
 
+-- Médianes par tranche d'âge
+seuils AS (
+  SELECT
+    tranche_age,
+    APPROX_QUANTILES(nb_clients_ayant_les_deux, 2)[OFFSET(1)] AS mediane_clients_par_paire
+  FROM paires_par_client
+  GROUP BY tranche_age
+),
+
 produits_details AS (
-  -- Étape 5 : infos produit (nom, catégorie, marque)
   SELECT 
     id_produit,
     produit,
@@ -62,10 +69,10 @@ produits_details AS (
   FROM {{ ref('mrt_dim_produits') }}
 )
 
--- Étape finale : enrichissement avec libellés + confiance conditionnelle
+-- Résultat final enrichi
 SELECT 
   p.tranche_age,
-  
+
   p.produit_1,
   d1.produit AS produit_libelle_1,
   d1.categorie AS categorie_1,
@@ -77,18 +84,20 @@ SELECT
   d2.marque AS marque_2,
 
   p.nb_clients_ayant_les_deux,
-
   ap1.nb_clients_produit AS nb_clients_produit_1,
   ap2.nb_clients_produit AS nb_clients_produit_2,
 
   SAFE_DIVIDE(p.nb_clients_ayant_les_deux, ap1.nb_clients_produit) AS confiance_1_vers_2,
-  SAFE_DIVIDE(p.nb_clients_ayant_les_deux, ap2.nb_clients_produit) AS confiance_2_vers_1
+  SAFE_DIVIDE(p.nb_clients_ayant_les_deux, ap2.nb_clients_produit) AS confiance_2_vers_1,
+
+  s.mediane_clients_par_paire
 
 FROM paires_par_client p
 JOIN achats_par_produit ap1 ON p.tranche_age = ap1.tranche_age AND p.produit_1 = ap1.id_produit
 JOIN achats_par_produit ap2 ON p.tranche_age = ap2.tranche_age AND p.produit_2 = ap2.id_produit
 JOIN produits_details d1 ON p.produit_1 = d1.id_produit
 JOIN produits_details d2 ON p.produit_2 = d2.id_produit
+JOIN seuils s ON p.tranche_age = s.tranche_age
 
 WHERE p.nb_clients_ayant_les_deux >= 3
 ORDER BY p.tranche_age, p.nb_clients_ayant_les_deux DESC

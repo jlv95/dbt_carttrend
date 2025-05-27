@@ -1,57 +1,52 @@
-WITH commandes AS (
+-- ========================================================
+-- Modèle dbt : v_segmentation_produits
+-- Objectif : Segmenter les produits selon leur performance
+-- Critères : Quantité vendue et CA réellement encaissé
+-- Ajout : exposition des médianes directement dans la vue
+-- ========================================================
+
+-- Étape 1 : Agrégation des ventes valides
+WITH ventes AS (
   SELECT
-    id_produit,
-    quantite,
-    prix_unitaire_avant_promotion,
-    montant_commande_apres_promotion AS montant_paye,
-    id_promotion_appliquee
-  FROM {{ ref('mrt_fct_commandes') }}
-  WHERE statut_commande != 'Annulée'  -- Exclure les commandes annulées
+    p.id_produit,
+    p.produit,
+    SUM(COALESCE(f.quantite, 0)) AS quantite_totale,
+    SUM(COALESCE(f.montant_commande_apres_promotion, 0)) AS chiffre_affaires
+  FROM {{ ref('mrt_fct_commandes') }} f
+  JOIN {{ ref('mrt_dim_produits') }} p ON f.id_produit = p.id_produit
+  WHERE f.statut_commande != 'Annulée'
+  GROUP BY p.id_produit, p.produit
 ),
 
-calculs AS (
+-- Étape 2 : Calcul des médianes globales
+seuils AS (
   SELECT
-    id_produit,
-
-    -- Montant théorique sans promo (catalogue)
-    SUM(COALESCE(quantite, 0) * COALESCE(prix_unitaire_avant_promotion, 0)) AS montant_sans_promo,
-
-    -- Montant réellement encaissé (avec ou sans promo)
-    SUM(COALESCE(montant_paye, 0)) AS montant_reel,
-
-    -- Nombre de commandes avec et sans promo
-    COUNTIF(id_promotion_appliquee IS NOT NULL) AS nb_commandes_avec_promo,
-    COUNTIF(id_promotion_appliquee IS NULL) AS nb_commandes_sans_promo
-  FROM commandes
-  GROUP BY id_produit
+    APPROX_QUANTILES(quantite_totale, 2)[OFFSET(1)] AS mediane_quantite,
+    APPROX_QUANTILES(chiffre_affaires, 2)[OFFSET(1)] AS mediane_chiffre_affaires
+  FROM ventes
 ),
 
-produits AS (
-  SELECT 
-    id_produit,
-    produit,
-    categorie,
-    marque
-  FROM {{ ref('mrt_dim_produits') }}
+-- Étape 3 : Classements
+classement AS (
+  SELECT
+    *,
+    RANK() OVER (ORDER BY quantite_totale DESC) AS rang_volume,
+    RANK() OVER (ORDER BY chiffre_affaires DESC) AS rang_valeur
+  FROM ventes
 )
 
-SELECT 
-  c.id_produit,
-  p.produit,
-  p.categorie,
-  p.marque,
+-- Étape 4 : Vue finale avec segment + exposition des médianes
+SELECT
+  c.*,
+  s.mediane_quantite,
+  s.mediane_chiffre_affaires,
 
-  c.nb_commandes_avec_promo,
-  c.nb_commandes_sans_promo,
-  (c.nb_commandes_avec_promo + c.nb_commandes_sans_promo) AS nb_commandes_totales,
+  CASE
+    WHEN c.quantite_totale >= s.mediane_quantite AND c.chiffre_affaires >= s.mediane_chiffre_affaires THEN 'Star'
+    WHEN c.quantite_totale >= s.mediane_quantite AND c.chiffre_affaires < s.mediane_chiffre_affaires THEN 'Populaire peu rentable'
+    WHEN c.quantite_totale < s.mediane_quantite AND c.chiffre_affaires >= s.mediane_chiffre_affaires THEN 'Premium peu vendu'
+    ELSE 'Flop'
+  END AS segment_produit
 
-  ROUND(SAFE_DIVIDE(c.nb_commandes_avec_promo, c.nb_commandes_avec_promo + c.nb_commandes_sans_promo) * 100, 2) AS part_commandes_promo_pct,
-
-  c.montant_sans_promo,
-  c.montant_reel,
-
-  -- Effet global de la promo sur le CA
-  ROUND(SAFE_DIVIDE(c.montant_reel - c.montant_sans_promo, c.montant_sans_promo) * 100, 2) AS effet_promo_pct
-FROM calculs c
-LEFT JOIN produits p ON c.id_produit = p.id_produit
-ORDER BY effet_promo_pct ASC
+FROM classement c
+CROSS JOIN seuils s

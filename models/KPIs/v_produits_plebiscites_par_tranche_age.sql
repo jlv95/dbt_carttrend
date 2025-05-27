@@ -1,11 +1,10 @@
 -- ============================================================================
--- Modèle dbt : v_segmentation_categories_par_age
--- Objectif : Identifier les catégories de produits les plus plébiscitées par tranche d'âge
--- Méthode : Agrégation par catégorie + tranche d'âge, classement volume / valeur, segmentation croisée
+-- Vue : v_produits_plebiscites_par_tranche_age (US003)
+-- Objectif : Identifier les produits préférés par tranche d’âge
+-- Méthode : Quantité et CA + comparaison aux médianes de la tranche
 -- ============================================================================
 
--- Étape 1 : Regrouper les ventes par tranche d’âge et catégorie
-WITH ventes_age_cat AS (
+WITH ventes_age AS (
   SELECT
     CASE
       WHEN c.age < 25 THEN 'Moins de 25 ans'
@@ -13,44 +12,52 @@ WITH ventes_age_cat AS (
       WHEN c.age BETWEEN 41 AND 60 THEN '41–60 ans'
       ELSE 'Plus de 60 ans'
     END AS tranche_age,
+
+    p.id_produit,
+    p.produit,
     p.categorie,
-    SUM(f.quantite) AS quantite_totale,
-    SUM(f.quantite * p.prix) AS chiffre_affaires
+
+    SUM(COALESCE(f.quantite, 0)) AS quantite_totale,
+    SUM(COALESCE(f.montant_commande_apres_promotion, 0)) AS chiffre_affaires
   FROM {{ ref('mrt_fct_commandes') }} f
   JOIN {{ ref('mrt_dim_clients') }} c ON f.id_client = c.id_client
   JOIN {{ ref('mrt_dim_produits') }} p ON f.id_produit = p.id_produit
-  GROUP BY tranche_age, p.categorie
+  WHERE f.statut_commande != 'Annulée'
+  GROUP BY tranche_age, p.id_produit, p.produit, p.categorie
 ),
 
--- Étape 2 : Médianes par tranche d’âge
+-- Médianes par tranche d'âge
 seuils AS (
   SELECT
     tranche_age,
     APPROX_QUANTILES(quantite_totale, 2)[OFFSET(1)] AS mediane_volume,
     APPROX_QUANTILES(chiffre_affaires, 2)[OFFSET(1)] AS mediane_ca
-  FROM ventes_age_cat
+  FROM ventes_age
   GROUP BY tranche_age
 ),
 
--- Étape 3 : Ajout des rangs
+-- Rangs par volume et CA dans chaque tranche
 classement AS (
   SELECT
     v.*,
     RANK() OVER (PARTITION BY v.tranche_age ORDER BY v.quantite_totale DESC) AS rang_volume,
     RANK() OVER (PARTITION BY v.tranche_age ORDER BY v.chiffre_affaires DESC) AS rang_valeur
-  FROM ventes_age_cat v
+  FROM ventes_age v
 )
 
--- Étape 4 : Segmentation finale
+-- Résultat enrichi avec médianes
 SELECT
-  c.*,
+  c.tranche_age,
+  c.id_produit,
+  c.produit,
+  c.categorie,
+  c.quantite_totale,
+  c.chiffre_affaires,
+  c.rang_volume,
+  c.rang_valeur,
   s.mediane_volume,
-  s.mediane_ca,
-  CASE
-    WHEN c.quantite_totale >= s.mediane_volume AND c.chiffre_affaires >= s.mediane_ca THEN 'Star'
-    WHEN c.quantite_totale >= s.mediane_volume AND c.chiffre_affaires < s.mediane_ca THEN 'Populaire peu rentable'
-    WHEN c.quantite_totale < s.mediane_volume AND c.chiffre_affaires >= s.mediane_ca THEN 'Premium discret'
-    ELSE 'Faible'
-  END AS segment_categorie
+  s.mediane_ca
 FROM classement c
 JOIN seuils s ON c.tranche_age = s.tranche_age
+WHERE c.rang_volume <= 10
+ORDER BY c.tranche_age, c.rang_volume

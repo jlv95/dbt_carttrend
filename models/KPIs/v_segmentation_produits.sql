@@ -1,47 +1,52 @@
--- ===================================================================
--- Modèle dbt : v_segmentation_produits
--- Objectif : Segmenter les produits selon leur performance commerciale
--- Critères : Croisement de la quantité vendue et du chiffre d'affaires
--- Résultat : Label 'Star', 'Flop', etc. + rangs de classement
--- ===================================================================
+-- ========================================================
+-- Modèle dbt : v_segmentation_produits (US001)
+-- Objectif : Segmenter les produits selon leur performance
+-- Critères : Quantité vendue et CA réellement encaissé
+-- Ajout : exposition des médianes directement dans la vue
+-- ========================================================
 
--- Étape 1 : Calcul des ventes totales (quantité + CA) par produit (c'est un commentaire)
+-- Étape 1 : Agrégation des ventes valides
 WITH ventes AS (
   SELECT
     p.id_produit,
     p.produit,
-    SUM(f.quantite) AS quantite_totale,  -- Volume total vendu
-    SUM(f.quantite * p.prix) AS chiffre_affaires  -- CA total généré
+    SUM(COALESCE(f.quantite, 0)) AS quantite_totale,
+    SUM(COALESCE(f.montant_commande_apres_promotion, 0)) AS chiffre_affaires
   FROM {{ ref('mrt_fct_commandes') }} f
   JOIN {{ ref('mrt_dim_produits') }} p ON f.id_produit = p.id_produit
+  WHERE f.statut_commande != 'Annulée'
   GROUP BY p.id_produit, p.produit
 ),
 
--- Étape 2 : Calcul des médianes (quantiles) pour déterminer les seuils
+-- Étape 2 : Calcul des médianes globales
 seuils AS (
   SELECT
-    APPROX_QUANTILES(quantite_totale, 2)[OFFSET(1)] AS q_median,      -- Médiane du volume
-    APPROX_QUANTILES(chiffre_affaires, 2)[OFFSET(1)] AS ca_median     -- Médiane du CA
+    APPROX_QUANTILES(quantite_totale, 2)[OFFSET(1)] AS mediane_quantite,
+    APPROX_QUANTILES(chiffre_affaires, 2)[OFFSET(1)] AS mediane_chiffre_affaires
   FROM ventes
 ),
 
--- Étape 3 : Attribution des rangs pour chaque produit
+-- Étape 3 : Classements
 classement AS (
   SELECT
     *,
-    RANK() OVER (ORDER BY quantite_totale DESC) AS rang_volume,        -- Classement par quantité
-    RANK() OVER (ORDER BY chiffre_affaires DESC) AS rang_valeur        -- Classement par CA
+    RANK() OVER (ORDER BY quantite_totale DESC) AS rang_volume,
+    RANK() OVER (ORDER BY chiffre_affaires DESC) AS rang_valeur
   FROM ventes
 )
 
--- Étape 4 : Segmentation finale des produits selon les seuils
+-- Étape 4 : Vue finale avec segment + exposition des médianes
 SELECT
-  c.*,  -- Toutes les colonnes issues du classement
+  c.*,
+  s.mediane_quantite,
+  s.mediane_chiffre_affaires,
+
   CASE
-    WHEN c.quantite_totale >= s.q_median AND c.chiffre_affaires >= s.ca_median THEN 'Star'
-    WHEN c.quantite_totale >= s.q_median AND c.chiffre_affaires < s.ca_median THEN 'Populaire peu rentable'
-    WHEN c.quantite_totale < s.q_median AND c.chiffre_affaires >= s.ca_median THEN 'Premium peu vendu'
+    WHEN c.quantite_totale >= s.mediane_quantite AND c.chiffre_affaires >= s.mediane_chiffre_affaires THEN 'Star'
+    WHEN c.quantite_totale >= s.mediane_quantite AND c.chiffre_affaires < s.mediane_chiffre_affaires THEN 'Populaire peu rentable'
+    WHEN c.quantite_totale < s.mediane_quantite AND c.chiffre_affaires >= s.mediane_chiffre_affaires THEN 'Premium peu vendu'
     ELSE 'Flop'
-  END AS segment_produit  -- Label de performance attribué
+  END AS segment_produit
+
 FROM classement c
-CROSS JOIN seuils s  -- Appliquer les seuils sur l’ensemble des produits
+CROSS JOIN seuils s
