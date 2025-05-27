@@ -77,3 +77,4 @@ LEFT JOIN {{ ref('mrt_dim_produits') }} AS prod
 -- On transforme ici l'identifiant (ex : 'P012') pour le faire correspondre à la clé promotion (ex : 'PROM012')
 LEFT JOIN {{ ref('mrt_dim_promotions') }} AS prom 
     ON CONCAT('PROM', SUBSTR(c.id_promotion_appliquee, 2)) = prom.id_promotion
+
