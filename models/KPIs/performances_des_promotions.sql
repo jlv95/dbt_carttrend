@@ -11,7 +11,7 @@ SELECT
     valeur_promotion,
     montant_commande_apres_promotion
 
-FROM {{ ref('mrt_fct_commandes_enrichies') }}
+FROM {{ ref('mrt_fct_commandes') }}
 
 WHERE statut_commande != 'Annulée' 
 

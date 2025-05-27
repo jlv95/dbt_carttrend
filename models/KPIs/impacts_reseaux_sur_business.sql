@@ -20,7 +20,7 @@ commandes_agg AS (
         COUNTIF(statut_commande != 'Annulée') AS volume_commandes_viables, -- soit les commandes non annulées
         COUNTIF(statut_commande = 'Annulée') AS volume_commandes_annulees,
         COUNT(*) AS volume_commandes_total -- Ajout du total des commandes
-    FROM {{ ref('mrt_fct_commandes_enrichies') }}
+    FROM {{ ref('mrt_fct_commandes') }}
     GROUP BY annee_mois_commande
 )
 
