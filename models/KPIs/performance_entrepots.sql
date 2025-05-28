@@ -16,7 +16,7 @@ commandes_par_entrepot AS (
     c.id_entrepot_depart,
     COUNT(*) AS nb_commandes,
     SUM(CASE 
-      WHEN DATE_DIFF(DATE(c.date_livraison_estimee), DATE(c.date_commande), DAY) > 10 
+      WHEN DATE_DIFF(DATE(c.date_livraison_estimee), DATE(c.date_commande), DAY) > 10
       THEN 1 ELSE 0 END
     ) AS nb_retards
   FROM {{ ref('mrt_fct_commandes') }} c
@@ -26,6 +26,7 @@ commandes_par_entrepot AS (
 SELECT 
   e.id_entrepot, 
   e.localisation, 
+  e.taux_remplissage,
   COALESCE(v.total_volumes, 0) AS total_volumes, 
   COALESCE(c.nb_commandes, 0) AS nb_commandes,
   COALESCE(c.nb_retards, 0) AS nb_retards,
@@ -36,5 +37,6 @@ SELECT
 FROM {{ ref('mrt_dim_entrepots') }} e
 LEFT JOIN volumes_par_entrepot v ON e.id_entrepot = v.id_entrepot
 LEFT JOIN commandes_par_entrepot c ON e.id_entrepot = c.id_entrepot_depart
+
 ORDER BY total_volumes DESC
 
