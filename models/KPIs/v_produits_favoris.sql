@@ -1,5 +1,5 @@
 -- ========================================================
--- Modèle dbt : v_produits_favoris
+-- Modèle dbt : v_produits_favoris (US004)
 -- Objectif : Favoris produits — Identifier les produits les plus souvent ajoutés aux favoris, indépendamment des ventes.
 -- Critères : Quantité vendue et CA réellement encaissé
 -- Ajout : exposition des médianes directement dans la vue
@@ -17,8 +17,3 @@ JOIN {{ ref('mrt_dim_produits') }} p
   ON f.id_produit_favori = p.id_produit
 GROUP BY f.id_produit_favori, p.produit, p.categorie, p.sous_categorie
 ORDER BY nb_clients_ayant_favori DESC
-
-
-
-
-
