@@ -7,7 +7,7 @@ WITH commandes AS (
     quantite,
     prix_unitaire_avant_promotion,
     montant_commande_apres_promotion AS montant_paye,
-    id_promotion_appliquee
+    id_promotion
   FROM {{ ref('mrt_fct_commandes') }}
   WHERE statut_commande != 'Annulée'  -- Exclure les commandes annulées
 ),
@@ -23,8 +23,8 @@ calculs AS (
     SUM(COALESCE(montant_paye, 0)) AS montant_reel,
 
     -- Nombre de commandes avec et sans promo
-    COUNTIF(id_promotion_appliquee IS NOT NULL) AS nb_commandes_avec_promo,
-    COUNTIF(id_promotion_appliquee IS NULL) AS nb_commandes_sans_promo
+    COUNTIF(id_promotion IS NOT NULL) AS nb_commandes_avec_promo,
+    COUNTIF(id_promotion IS NULL) AS nb_commandes_sans_promo
   FROM commandes
   GROUP BY id_produit
 ),

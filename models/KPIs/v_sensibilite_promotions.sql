@@ -8,33 +8,33 @@ SELECT
   p.categorie,
 
   -- Volume vendu avec promotion
-  SUM(CASE WHEN f.id_promotion_appliquee IS NOT NULL THEN COALESCE(f.quantite, 0) ELSE 0 END) AS quantite_en_promo,
+  SUM(CASE WHEN f.id_promotion IS NOT NULL THEN COALESCE(f.quantite, 0) ELSE 0 END) AS quantite_en_promo,
 
   -- Volume vendu sans promotion
-  SUM(CASE WHEN f.id_promotion_appliquee IS NULL THEN COALESCE(f.quantite, 0) ELSE 0 END) AS quantite_hors_promo,
+  SUM(CASE WHEN f.id_promotion IS NULL THEN COALESCE(f.quantite, 0) ELSE 0 END) AS quantite_hors_promo,
 
   -- CA total (réellement payé)
   SUM(COALESCE(f.montant_commande_apres_promotion, 0)) AS ca_total,
 
   -- CA en promotion
-  SUM(CASE WHEN f.id_promotion_appliquee IS NOT NULL THEN COALESCE(f.montant_commande_apres_promotion, 0) ELSE 0 END) AS ca_promo,
+  SUM(CASE WHEN f.id_promotion IS NOT NULL THEN COALESCE(f.montant_commande_apres_promotion, 0) ELSE 0 END) AS ca_promo,
 
   -- Taux de sensibilité en volume
   SAFE_DIVIDE(
-    SUM(CASE WHEN f.id_promotion_appliquee IS NOT NULL THEN f.quantite ELSE 0 END),
+    SUM(CASE WHEN f.id_promotion IS NOT NULL THEN f.quantite ELSE 0 END),
     SUM(f.quantite)
   ) AS taux_sensibilite_volume,
 
   -- Taux de sensibilité en valeur (basé sur CA réel)
   SAFE_DIVIDE(
-    SUM(CASE WHEN f.id_promotion_appliquee IS NOT NULL THEN f.montant_commande_apres_promotion ELSE 0 END),
+    SUM(CASE WHEN f.id_promotion IS NOT NULL THEN f.montant_commande_apres_promotion ELSE 0 END),
     SUM(f.montant_commande_apres_promotion)
   ) AS taux_sensibilite_valeur,
 
   -- Classement des produits les plus sensibles (volume)
   RANK() OVER (
     ORDER BY SAFE_DIVIDE(
-      SUM(CASE WHEN f.id_promotion_appliquee IS NOT NULL THEN f.quantite ELSE 0 END),
+      SUM(CASE WHEN f.id_promotion IS NOT NULL THEN f.quantite ELSE 0 END),
       SUM(f.quantite)
     ) DESC
   ) AS rang_sensibilite_volume
