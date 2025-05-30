@@ -6,14 +6,5 @@
 
 -- je ne sélectionne que les champs voulus (ex : je ne sélectionne pas les champs à caractère personnel, car ils n'ont pas leur utilité en BI)
 
-WITH source AS (
-    SELECT
-        id_client,
-        age,
-        genre,
-        frequence_visites,
-        date_inscription
-    FROM {{ ref('stg_clients') }}
-)
-
-SELECT * FROM source
+SELECT *
+FROM {{ ref('stg_clients') }}
