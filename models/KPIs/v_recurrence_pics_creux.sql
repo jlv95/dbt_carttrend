@@ -2,6 +2,7 @@
 -- Vue : v_recurrence_pics_creux (US007)
 -- Objectif : Identifier les pics/creux de commandes par jour du mois
 -- Méthode : Analyse statistique (z-score) + médiane
+-- Adaptée pour affichage du jour de semaine en format européen et nom en français
 -- ==============================================================================
 
 WITH commandes_par_jour AS (
@@ -9,15 +10,27 @@ WITH commandes_par_jour AS (
   SELECT 
     DATE(date_commande) AS jour,
     EXTRACT(DAY FROM DATE(date_commande)) AS jour_du_mois,
-    EXTRACT(DAYOFWEEK FROM DATE(date_commande)) AS jour_de_semaine,
+    MOD(EXTRACT(DAYOFWEEK FROM DATE(date_commande)) + 5, 7) + 1 AS jour_de_semaine_fr,
+    FORMAT_DATE('%A', DATE(date_commande)) AS nom_jour_en,
     COUNT(*) AS nb_commandes
   FROM {{ ref('mrt_fct_commandes') }}
   WHERE statut_commande != 'Annulée'
-  GROUP BY jour, jour_du_mois, jour_de_semaine
+  GROUP BY jour, jour_du_mois, jour_de_semaine_fr, nom_jour_en
+),
+
+jours AS (
+  -- Étape 2 : Dictionnaire de correspondance jour anglais -> français
+  SELECT 'Monday' AS en, 'Lundi' AS fr UNION ALL
+  SELECT 'Tuesday', 'Mardi' UNION ALL
+  SELECT 'Wednesday', 'Mercredi' UNION ALL
+  SELECT 'Thursday', 'Jeudi' UNION ALL
+  SELECT 'Friday', 'Vendredi' UNION ALL
+  SELECT 'Saturday', 'Samedi' UNION ALL
+  SELECT 'Sunday', 'Dimanche'
 ),
 
 stats_par_jour_du_mois AS (
-  -- Étape 2 : Statistiques par jour du mois (1 à 31)
+  -- Étape 3 : Statistiques par jour du mois (1 à 31)
   SELECT 
     jour_du_mois,
     APPROX_QUANTILES(nb_commandes, 2)[OFFSET(1)] AS mediane_commandes,
@@ -28,11 +41,12 @@ stats_par_jour_du_mois AS (
 ),
 
 anomalies_par_jour AS (
-  -- Étape 3 : Calcul des écarts + z-score
+  -- Étape 4 : Calcul des écarts + z-score
   SELECT 
     c.jour,
     c.jour_du_mois,
-    c.jour_de_semaine,
+    c.jour_de_semaine_fr,
+    j.fr AS nom_jour_fr,
     c.nb_commandes,
     s.moyenne,
     s.mediane_commandes,
@@ -46,13 +60,16 @@ anomalies_par_jour AS (
   FROM commandes_par_jour c
   JOIN stats_par_jour_du_mois s 
     ON c.jour_du_mois = s.jour_du_mois
+  LEFT JOIN jours j 
+    ON c.nom_jour_en = j.en
 )
 
--- Étape 4 : Résultat enrichi
+-- Étape 5 : Résultat enrichi
 SELECT 
   jour,
   jour_du_mois,
-  jour_de_semaine,
+  jour_de_semaine_fr AS jour_de_semaine,
+  nom_jour_fr,
   nb_commandes,
   ROUND(moyenne, 2) AS moyenne_attendue,
   ROUND(mediane_commandes, 2) AS mediane_commandes,
