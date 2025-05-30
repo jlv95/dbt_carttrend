@@ -1,7 +1,15 @@
 SELECT
     id_campagne, 
     CAST(date AS DATE) AS date,
-    evenement_oui_non,
+
+    -- Conversion du champ evenement_oui_non en booleen : 
+    CASE
+        WHEN evenement_oui_non = 'Yes' THEN TRUE
+        WHEN evenement_oui_non = 'No' THEN FALSE
+        ELSE NULL
+    END AS evenement_oui_non,
+
+    evenement_oui_non = 'Yes' AS BOOLEAN,
     evenement_type,
     canal,
     CAST(budget AS INTEGER) AS budget,

@@ -3,7 +3,14 @@ SELECT
     id_commande,
     CAST(note_client AS INTEGER) AS note_client,
     commentaire,
-    plainte,
+
+    -- je convertis ce champ en BOOLEAN : Yes passe à true ; No passe à false et NULL reste à NULL
+    CASE
+        WHEN plainte = 'Yes' THEN TRUE
+        WHEN plainte = 'No' THEN FALSE
+        ELSE NULL
+    END AS plainte,
+
     CAST(temps_reponse_support AS INTEGER) AS temps_reponse_support,
     type_plainte, 
     employe_support
