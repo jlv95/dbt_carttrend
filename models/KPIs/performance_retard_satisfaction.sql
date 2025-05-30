@@ -36,7 +36,9 @@ commandes_avec_retard AS (
 -- Filtrage final : ne garder que les commandes notées
 SELECT
     cwr.*,
-    s.note_client
+    s.note_client,
+    s.plainte,
+    s.type_plainte
 FROM commandes_avec_retard cwr
 JOIN {{ ref('mrt_fct_satisfaction') }} s
   ON cwr.id_commande = s.id_commande
