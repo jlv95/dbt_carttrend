@@ -5,7 +5,7 @@ SELECT
     quantite,
     prix_unitaire_avant_promotion,
     montant_commande_avant_promotion,
-    id_promotion_appliquee,
+    id_promotion,
     promotion_oui_non,
     type_promotion,
     valeur_promotion,

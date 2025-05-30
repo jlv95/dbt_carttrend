@@ -32,14 +32,14 @@ SELECT
     -- Transformation de l'identifiant de promotion :
     -- Si non vide, on transforme 'P099' en 'PROM099' pour aligner avec la clé primaire des promotions
     CASE 
-        WHEN TRIM(c.id_promotion_appliquee) IS NOT NULL AND TRIM(c.id_promotion_appliquee) != '' 
-        THEN CONCAT('PROM', SUBSTR(c.id_promotion_appliquee, 2))
+        WHEN TRIM(c.id_promotion) IS NOT NULL AND TRIM(c.id_promotion) != '' 
+        THEN CONCAT('PROM', SUBSTR(c.id_promotion, 2))
         ELSE NULL
-    END AS id_promotion_appliquee,
+    END AS id_promotion,
 
     -- Champ booléen pour indiquer si une promotion est appliquée ou non
     CASE 
-        WHEN TRIM(c.id_promotion_appliquee) IS NOT NULL AND TRIM(c.id_promotion_appliquee) != '' 
+        WHEN TRIM(c.id_promotion) IS NOT NULL AND TRIM(c.id_promotion) != '' 
         THEN TRUE 
         ELSE FALSE 
     END AS promotion_oui_non,
@@ -76,5 +76,5 @@ LEFT JOIN {{ ref('mrt_dim_produits') }} AS prod
 -- Jointure avec mrt_dim_promotions :
 -- On transforme ici l'identifiant (ex : 'P012') pour le faire correspondre à la clé promotion (ex : 'PROM012')
 LEFT JOIN {{ ref('mrt_dim_promotions') }} AS prom 
-    ON CONCAT('PROM', SUBSTR(c.id_promotion_appliquee, 2)) = prom.id_promotion
+    ON CONCAT('PROM', SUBSTR(c.id_promotion, 2)) = prom.id_promotion
 
