@@ -3,10 +3,10 @@
 WITH source AS (
     SELECT
         id_client,
-        age,
+        CAST (age AS INTEGER) AS age,
         genre,
-        frequence_visites,
-        date_inscription,
+        CAST (frequence_visites AS INTEGER) AS frequence_visites,
+        CAST (date_inscription AS DATE) AS date_inscription,
         favoris
     FROM {{ source('dataset_airflow', 'clients') }}
 )
