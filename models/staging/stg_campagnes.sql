@@ -9,7 +9,6 @@ SELECT
         ELSE NULL
     END AS evenement_oui_non,
 
-    evenement_oui_non = 'Yes' AS BOOLEAN,
     evenement_type,
     canal,
     CAST(budget AS INTEGER) AS budget,
