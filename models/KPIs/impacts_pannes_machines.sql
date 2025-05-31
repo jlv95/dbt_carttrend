@@ -1,4 +1,4 @@
--- Agrégation des données machines : somme du temps d'arrêt EN PANNE, volume traité, nombre de pannes et annee_mois
+-- Agrégation des données machines : somme du temps d'arrêt EN PANNE, volume traité, nombre de mois où la machine a été marquée en panne et annee_mois
 WITH machines_ag AS (
   SELECT
     id_machine,
@@ -39,4 +39,5 @@ FROM machines_ag m
 LEFT JOIN delai_livraison d
   ON m.id_entrepot = d.id_entrepot
  AND m.annee_mois = d.annee_mois
-ORDER BY m.temps_arret_panne ASC
+
+order by annee_mois
