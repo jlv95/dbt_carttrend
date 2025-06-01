@@ -15,5 +15,6 @@ SELECT
     EXTRACT(YEAR FROM date_jour) AS annee,
     EXTRACT(MONTH FROM date_jour) AS mois,
     EXTRACT(DAY FROM date_jour) AS jour,
-    FORMAT_DATE('%A', date_jour) AS jour_semaine
+    FORMAT_DATE('%A', date_jour) AS jour_semaine,
+    FORMAT_DATE('%Y-%m', date_jour) AS annee_mois  -- Colonne au format AAAA-MM,  utile pour faire des groupements et croisements avec d'autres vues ou tables
 FROM date_spine
