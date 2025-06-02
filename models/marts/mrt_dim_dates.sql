@@ -6,7 +6,7 @@
 
 WITH date_spine AS (
     SELECT 
-        DATE_ADD('2020-01-01', INTERVAL day_num DAY) AS date_jour
+        DATE_ADD('2019-01-01', INTERVAL day_num DAY) AS date_jour
     FROM UNNEST(GENERATE_ARRAY(0, 365 * 7)) AS day_num
 )
 
