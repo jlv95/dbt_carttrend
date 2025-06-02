@@ -1,6 +1,4 @@
----choisir le mots_cles a partir du commentaire
--- choisir le sentiment en fonction de la note 
-WITH base AS ( 
+WITH base AS (
     SELECT
         id_commande,
         commentaire,
@@ -13,50 +11,37 @@ WITH base AS (
     FROM {{ ref('mrt_fct_satisfaction') }}
     WHERE commentaire IS NOT NULL
 ),
-
 replaced AS (
     SELECT
         id_commande,
+        commentaire,
         note_client,
         sentiment,
         CASE
-            WHEN LOWER(commentaire) = 'Could be better.' THEN 'be better'
-            WHEN LOWER(commentaire) = 'excellent product highly recommend!' THEN 'recommend'
-            WHEN LOWER(commentaire) = 'fast delivery and good service.' THEN 'good service'
-            WHEN LOWER(commentaire) = 'good product, happy with the purchase.' THEN 'good product'
-            WHEN LOWER(commentaire) = 'average product, nothing special.' THEN 'average product'
-            WHEN LOWER(commentaire) = 'below average quality.' THEN 'average quality'
-            WHEN LOWER(commentaire) = 'customer service was unhelpful.' THEN 'service unhelpful'
-            WHEN LOWER(commentaire) = 'delivery took too long.' THEN 'delivery long'
-            WHEN LOWER(commentaire) = 'not satisfied with the service.' THEN 'bad service'
-            WHEN LOWER(commentaire) = 'terrible experience, will not buy again.' THEN 'terrible experience'
-            WHEN LOWER(commentaire) = 'great quality and service!' THEN 'great quality'
-            WHEN LOWER(commentaire) = 'it was okay, not great.' THEN 'average product'
-            WHEN LOWER(commentaire) = 'the product arrived damaged.' THEN 'product damaged'
-            WHEN LOWER(commentaire) = 'perfect experience, very happy!' THEN 'perfect'
-            WHEN LOWER(commentaire) = 'satisfied with the experience.' THEN 'satisfied'
-            ELSE NULL
+            WHEN LOWER(commentaire) LIKE '%better%' THEN 'passable'
+            WHEN LOWER(commentaire) LIKE '%excellent product%' THEN 'excellent'
+            WHEN LOWER(commentaire) LIKE '%fast delivery%' THEN 'efficient'
+            WHEN LOWER(commentaire) LIKE '%good product%' THEN 'satisfying'
+            WHEN LOWER(commentaire) LIKE '%average product%' THEN 'average'
+            WHEN LOWER(commentaire) LIKE '%below average%' THEN 'poor'
+            WHEN LOWER(commentaire) LIKE '%delivery took too long%' THEN 'slow'
+            WHEN LOWER(commentaire) LIKE '%not satisfied%' THEN 'unsatisfied'
+            WHEN LOWER(commentaire) LIKE '%terrible experience%' THEN 'terrible'
+            WHEN LOWER(commentaire) LIKE '%great quality%' THEN 'great'
+            WHEN LOWER(commentaire) LIKE '%okay%' THEN 'bof'
+            WHEN LOWER(commentaire) LIKE '%product arrived damaged%' THEN 'damaged'
+            WHEN LOWER(commentaire) LIKE '%perfect experience%' THEN 'perfect'
+            WHEN LOWER(commentaire) LIKE '%satisfied with the experience%' THEN 'satisfied'
+            WHEN LOWER(commentaire) LIKE '%Customer service was unhelpful%' THEN 'bad'
+            ELSE 'bad'
         END AS mots_cles
     FROM base
-),
-
-final AS (
-    SELECT
-        id_commande,
-        note_client,
-        sentiment,
-        CASE
-            WHEN note_client = 5 AND (mots_cles IS NULL OR mots_cles = '') THEN 'perfect'
-            WHEN note_client = 3 AND (mots_cles IS NULL OR mots_cles = '') THEN 'be better'
-            ELSE mots_cles
-        END AS mots_cles
-    FROM replaced
 )
-
 SELECT
     id_commande,
     note_client,
+    commentaire,
     sentiment,
     mots_cles
-FROM final
+FROM replaced
 ORDER BY sentiment
