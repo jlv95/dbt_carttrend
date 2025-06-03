@@ -4,6 +4,8 @@
     materialized='table'
 ) }}
 
+-- Avec ces lignes de code, je génère une table qui sera utilisée par d'autres tables, comme référentiel de dates bien propres
+
 WITH date_spine AS (
     SELECT 
         DATE_ADD('2019-01-01', INTERVAL day_num DAY) AS date_jour
