@@ -1,6 +1,6 @@
 -- ============================================================================
--- Vue : v_produits_plebiscites_par_tranche_age (US003a)
--- Objectif : Produits les plus achetés par tranche d’âge (volume + CA)
+-- Vue : v_categories_plebiscitees_par_tranche_age (US003b)
+-- Objectif : Catégories les plus achetées par tranche d’âge (volume + CA)
 -- ============================================================================
 
 SELECT
@@ -11,8 +11,6 @@ SELECT
     ELSE 'Plus de 60 ans'
   END AS tranche_age,
 
-  p.id_produit,
-  p.produit,
   p.categorie,
 
   SUM(COALESCE(f.quantite, 0)) AS quantite_totale,
@@ -23,4 +21,4 @@ JOIN {{ ref('mrt_dim_clients') }} c ON f.id_client = c.id_client
 JOIN {{ ref('mrt_dim_produits') }} p ON f.id_produit = p.id_produit
 WHERE f.statut_commande != 'Annulée'
 
-GROUP BY tranche_age, p.id_produit, p.produit, p.categorie
+GROUP BY tranche_age, p.categorie
