@@ -1,4 +1,4 @@
--- Agrégation des données machines : somme du temps d'arrêt EN PANNE, volume traité, nombre de pannes et annee_mois
+-- Agrégation des données machines : somme du temps d'arrêt EN PANNE, volume traité, nombre de mois où la machine a été marquée en panne et annee_mois
 WITH machines_ag AS (
   SELECT
     id_machine,
@@ -23,20 +23,33 @@ delai_livraison AS (
     AVG(DATE_DIFF(DATE(date_livraison_estimee), DATE(date_commande), DAY)) AS delai_moyen_livraison_entrepot_mois
   FROM {{ ref('mrt_fct_commandes') }}
   GROUP BY id_entrepot, annee_mois
+), 
+
+nom_entrepot AS (
+    SELECT
+        id_entrepot,
+        localisation
+    FROM {{ ref('mrt_dim_entrepots') }}
 )
 
 -- Jointure finale : machines avec délai moyen de livraison par entrepôt et mois
 SELECT
   m.id_machine,
   m.id_entrepot,
+  ne.localisation,
   m.type_machine,
   m.annee_mois,
   m.temps_arret_panne,
   m.nb_pannes_machines,
   m.total_volume_traite AS volume_traite,
   d.delai_moyen_livraison_entrepot_mois
-FROM machines_ag m
-LEFT JOIN delai_livraison d
-  ON m.id_entrepot = d.id_entrepot
- AND m.annee_mois = d.annee_mois
-ORDER BY m.temps_arret_panne ASC
+
+FROM machines_ag AS m
+
+LEFT JOIN delai_livraison AS d
+    ON m.id_entrepot = d.id_entrepot AND m.annee_mois = d.annee_mois
+
+LEFT JOIN nom_entrepot AS ne 
+    ON m.id_entrepot = ne.id_entrepot
+
+order by annee_mois

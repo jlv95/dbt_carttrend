@@ -1,8 +1,11 @@
+-- Objectif : éclater les produits favoris (liste séparée par des virgules) en lignes individuelles
+-- Pour cela, je crée une table et non une vue 
+-- Seront appelées les données depuis clients, produits, pour créer une nouvelle table de relations (d'où le mrt_rel_produits_favoris)
+
 {{ config(
     materialized='table'
 ) }}
 
--- Objectif : éclater les produits favoris (liste séparée par des virgules) en lignes individuelles
 WITH exploded_favoris AS (
     SELECT
         id_client,  -- On garde l’identifiant du client

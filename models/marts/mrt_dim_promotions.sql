@@ -10,6 +10,7 @@ SELECT
     type_promotion,
 
     -- Nettoyage de la colonne valeur_promotion : on traite les % ou les montants (avec € et virgules)
+    
     CASE 
         WHEN type_promotion = 'Pourcentage' THEN 
             SAFE_CAST(REPLACE(valeur_promotion, '%', '') AS FLOAT64) / 100

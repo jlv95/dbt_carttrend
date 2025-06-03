@@ -11,7 +11,7 @@ SELECT
         ELSE NULL
     END AS plainte,
 
-    CAST(temps_reponse_support AS INTEGER) AS temps_reponse_support,
+    CAST(temps_reponse_support AS INTEGER) AS temps_reponse_support, -- je change le type en INTEGER 
     type_plainte, 
     employe_support
 
