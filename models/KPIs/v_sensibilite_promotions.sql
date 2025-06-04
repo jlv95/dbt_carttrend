@@ -1,6 +1,6 @@
+
 -- v_sensibilite_promotions.sql (US009)
 -- Objectif : analyser la sensibilité des ventes aux promotions
--- en volume et en valeur, uniquement sur les commandes valides
 
 SELECT
   p.id_produit,
@@ -25,13 +25,13 @@ SELECT
     SUM(f.quantite)
   ) AS taux_sensibilite_volume,
 
-  -- Taux de sensibilité en valeur (basé sur CA réel)
+  -- Taux de sensibilité en valeur
   SAFE_DIVIDE(
     SUM(CASE WHEN f.id_promotion IS NOT NULL THEN f.montant_commande_apres_promotion ELSE 0 END),
     SUM(f.montant_commande_apres_promotion)
   ) AS taux_sensibilite_valeur,
 
-  -- Classement des produits les plus sensibles (volume)
+  -- Rang des produits les plus sensibles
   RANK() OVER (
     ORDER BY SAFE_DIVIDE(
       SUM(CASE WHEN f.id_promotion IS NOT NULL THEN f.quantite ELSE 0 END),
