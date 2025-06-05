@@ -1,23 +1,34 @@
 -- =============================================================================
 -- Vue : v_recurrence_pics_creux_semaines
--- Objectif : Identifier les semaines lucratives à partir du z-score hebdomadaire
--- Méthode : z-score par jour de semaine (pas de regroupement par mois)
+-- Objectif : Identifier les jours/semaine avec des pics de ventes inhabituels
+-- Méthodologie : Z-score mensuel ET hebdomadaire sur le CA réel (après promo)
+-- Marquage des semaines lucratives : ≥ 3 jours marqués comme "pic"
 -- =============================================================================
 
 WITH ventes_par_jour AS (
   SELECT
     CAST(f.date_commande AS DATE) AS jour,
     EXTRACT(YEAR FROM f.date_commande) AS annee,
+    EXTRACT(MONTH FROM f.date_commande) AS mois,
     EXTRACT(WEEK FROM f.date_commande) AS semaine,
     EXTRACT(DAYOFWEEK FROM f.date_commande) AS jour_semaine,
     SUM(f.montant_commande_apres_promotion) AS ca_journalier
-  FROM {{ ref('mrt_fct_commandes') }} f
+  FROM `carttrend-460508.dev_sbeghin.mrt_fct_commandes` f
   WHERE f.statut_commande != 'Annulée'
-  GROUP BY jour, annee, semaine, jour_semaine
+  GROUP BY jour, annee, mois, semaine, jour_semaine
 ),
 
--- Moyennes et écarts-types par jour de semaine
-stats_hebdo AS (
+stats_mensuelles AS (
+  SELECT
+    annee,
+    mois,
+    AVG(ca_journalier) AS moyenne_mois,
+    STDDEV(ca_journalier) AS ecart_type_mois
+  FROM ventes_par_jour
+  GROUP BY annee, mois
+),
+
+stats_hebdomadaires AS (
   SELECT
     jour_semaine,
     AVG(ca_journalier) AS moyenne_jour,
@@ -26,52 +37,53 @@ stats_hebdo AS (
   GROUP BY jour_semaine
 ),
 
--- Calcul des z-scores journaliers
-scores_journaliers AS (
+classement_journalier AS (
   SELECT
+    v.jour,
     v.annee,
+    v.mois,
     v.semaine,
+    v.jour_semaine,
     v.ca_journalier,
-    SAFE_DIVIDE(v.ca_journalier - s.moyenne_jour, s.ecart_type_jour) AS z_score_jour
+
+    SAFE_DIVIDE(v.ca_journalier - m.moyenne_mois, m.ecart_type_mois) AS z_score_mois,
+    SAFE_DIVIDE(v.ca_journalier - h.moyenne_jour, h.ecart_type_jour) AS z_score_jour,
+
+    CASE 
+      WHEN SAFE_DIVIDE(v.ca_journalier - m.moyenne_mois, m.ecart_type_mois) >= 1.5 
+           OR SAFE_DIVIDE(v.ca_journalier - h.moyenne_jour, h.ecart_type_jour) >= 1.5 
+      THEN 'pic'
+      ELSE 'normal'
+    END AS statut_lucratif_jour
   FROM ventes_par_jour v
-  JOIN stats_hebdo s ON v.jour_semaine = s.jour_semaine
+  JOIN stats_mensuelles m ON v.annee = m.annee AND v.mois = m.mois
+  JOIN stats_hebdomadaires h ON v.jour_semaine = h.jour_semaine
 ),
 
--- Marquage des semaines lucratives
-semaines_lucratives AS (
+marquage_semaines AS (
   SELECT
     annee,
     semaine,
     COUNT(*) AS nb_jours,
-    SUM(CASE WHEN z_score_jour >= 1.5 THEN 1 ELSE 0 END) AS nb_jours_lucratifs,
+    SUM(CASE WHEN statut_lucratif_jour = 'pic' THEN 1 ELSE 0 END) AS nb_jours_lucratifs,
     CASE 
-      WHEN SUM(CASE WHEN z_score_jour >= 1.5 THEN 1 ELSE 0 END) >= 3 THEN 'Semaine lucrative'
+      WHEN SUM(CASE WHEN statut_lucratif_jour = 'pic' THEN 1 ELSE 0 END) >= 3 
+      THEN 'Semaine lucrative'
       ELSE 'Semaine normale'
-    END AS statut_lucratif_semaine
-  FROM scores_journaliers
-  GROUP BY annee, semaine
-),
-
--- Calcul du CA cumulé par semaine (en dehors des z-scores)
-ca_par_semaine AS (
-  SELECT
-    annee,
-    semaine,
+    END AS statut_lucratif_semaine,
     SUM(ca_journalier) AS ca_total_semaine
-  FROM ventes_par_jour
+  FROM classement_journalier
   GROUP BY annee, semaine
 )
 
--- Résultat final avec tous les champs nécessaires pour Power BI
+-- Résultat final pour Power BI
 SELECT
-  s.annee,
-  s.semaine,
-  c.ca_total_semaine,
-  s.nb_jours,
-  s.nb_jours_lucratifs,
-  s.statut_lucratif_semaine,
-  CONCAT(CAST(s.annee AS STRING), '-S', LPAD(CAST(s.semaine AS STRING), 2, '0')) AS semaine_affichee
-FROM semaines_lucratives s
-JOIN ca_par_semaine c
-  ON s.annee = c.annee AND s.semaine = c.semaine
-ORDER BY s.annee, s.semaine
+  annee,
+  semaine,
+  ca_total_semaine,
+  nb_jours,
+  nb_jours_lucratifs,
+  statut_lucratif_semaine,
+  CONCAT(CAST(annee AS STRING), '-S', LPAD(CAST(semaine AS STRING), 2, '0')) AS semaine_affichee
+FROM marquage_semaines
+ORDER BY annee, semaine
