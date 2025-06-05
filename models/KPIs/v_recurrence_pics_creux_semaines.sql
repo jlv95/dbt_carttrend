@@ -1,8 +1,9 @@
 -- =============================================================================
 -- Vue : v_recurrence_pics_creux_semaines
 -- Objectif : Identifier les semaines lucratives à partir du z-score hebdomadaire
--- Méthode : z-score par jour de semaine (pas de regroupement par mois)
+-- Méthode : z-score par jour de semaine (sans regroupement par mois)
 -- =============================================================================
+
 WITH ventes_par_jour AS (
   SELECT
     CAST(f.date_commande AS DATE) AS jour,
@@ -28,6 +29,7 @@ scores_journaliers AS (
   SELECT
     v.annee,
     v.semaine,
+    v.ca_journalier,
     SAFE_DIVIDE(v.ca_journalier - s.moyenne_jour, s.ecart_type_jour) AS z_score_jour
   FROM ventes_par_jour v
   JOIN stats_hebdo s ON v.jour_semaine = s.jour_semaine
@@ -38,11 +40,13 @@ semaines_lucratives AS (
     annee,
     semaine,
     COUNT(*) AS nb_jours,
+    SUM(ca_journalier) AS ca_total_semaine,
     SUM(CASE WHEN z_score_jour >= 1.5 THEN 1 ELSE 0 END) AS nb_jours_lucratifs,
     CASE 
       WHEN SUM(CASE WHEN z_score_jour >= 1.5 THEN 1 ELSE 0 END) >= 3 THEN 'Semaine lucrative'
       ELSE 'Semaine normale'
-    END AS statut_lucratif_semaine
+    END AS statut_lucratif_semaine,
+    CONCAT(CAST(annee AS STRING), '-S', LPAD(CAST(semaine AS STRING), 2, '0')) AS semaine_affichee
   FROM scores_journaliers
   GROUP BY annee, semaine
 )
